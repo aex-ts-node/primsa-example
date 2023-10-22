@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 class HelloAex {
   @compact("/")
-  public async hello(ctx:any) {
+  public async hello(ctx: any) {
     const {
       prisma,
     }: {
@@ -15,17 +15,23 @@ class HelloAex {
   }
 }
 
-const prismaClient = new PrismaClient();
+const prisma = new PrismaClient();
+
+const prismaMiddleware = (function (prismaClient) {
+  return async (_, __, scope) => {
+    await prismaClient.$connect();
+    scope.orm = {};
+    Object.defineProperty(scope.orm, "prisma", {
+      value: prismaClient,
+    });
+  }
+})(prisma);
+
+
 const aex = new Aex();
 let port = 8081;
 
-aex.use(async (_, __, scope: any) => {
-  await prismaClient.$connect();
-  scope.orm = {};
-  Object.defineProperty(scope.orm, "prisma", {
-    value: prismaClient,
-  });
-});
+aex.use(prismaMiddleware);
 
 aex.push(HelloAex);
 
@@ -36,5 +42,5 @@ aex
     console.log("Server started at http://localhost:" + port + "/");
   })
   .finally(async () => {
-    await prismaClient.$disconnect();
+    await prisma.$disconnect();
   });
